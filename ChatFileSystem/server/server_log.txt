@@ -1,0 +1,9 @@
+[2025-12-01 12:00:14] 클라이언트 연결 (socket 4)
+[2025-12-01 12:00:18] 클라이언트 연결 (socket 5)
+[2025-12-01 12:00:39] test1 파일 업로드 요청
+[2025-12-01 12:00:39] File upload request: test2.txt (12 bytes)
+[2025-12-01 12:00:39] Sending File Upload exit signal: test2.txt
+[2025-12-01 12:00:39] File Upload success test2.txt (12 bytes send)
+[2025-12-01 12:00:39] Delete timer thread created for test2.txt
+[2025-12-01 12:00:39] Timer started for file ./server/server_storage/test2.txt (ttl=60 sec)
+[2025-12-01 12:01:39] Timed-delete: removed file ./server/server_storage/test2.txt

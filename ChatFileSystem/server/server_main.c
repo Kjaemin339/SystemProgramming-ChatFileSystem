@@ -15,6 +15,7 @@
 // 외부 함수
 bool check_login(const char *id, const char *pw);
 void broadcast(int sender_fd, Message *msg, int max_clients);
+void handle_chat_message(int client_fd, Message *msg,int max_clients);
 void handle_file_upload(int client_fd, Message *msg);
 void handle_file_download(int client_fd, Message *msg);
 void server_log(const char *fmt, ...);
@@ -162,7 +163,10 @@ int main() {
                     case MSG_CHAT:
                         if (strcmp(msg.data, "/users") == 0) {
                             send_user_list(sd);
-                        } else {
+                        }else if(msg.data[0] == '/' ){
+                            handle_chat_message(sd, &msg, MAX_CLIENTS);
+                        }
+                        else {
                             printf("[%s]: %s\n", msg.sender, msg.data);
                             server_log("채팅: %s - %s", msg.sender, msg.data);
                             broadcast(sd, &msg, MAX_CLIENTS);

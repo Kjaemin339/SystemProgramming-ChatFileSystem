@@ -4,12 +4,6 @@
 #include <sys/stat.h>
 #include "protocol.h"
 
-#ifndef SERVER_AUTH_H
-#define SERVER_AUTH_H
-
-void assign_root_if_first(int client_fd);
-
-#endif
 
 extern int client_sockets[];
 
@@ -43,8 +37,6 @@ bool check_login(const char *id, const char *pw) {
     fclose(fp);
     return false;
 }
-
-
 /**
  * 로그인 성공한 유저 → socket_fd 에 username 저장
  */
@@ -56,8 +48,6 @@ void register_user(int socket_fd, const char *username) {
         }
     }
 }
-
-
 /**
  * 서버에서 현재 유저의 username 얻기
  */
@@ -70,14 +60,13 @@ const char* get_username(int socket_fd) {
     return NULL;
 }
 
-
 /**
  * root 권한 배정 (가장 먼저 로그인한 사용자)
  */
 void assign_root_if_first(int socket_fd) {
     if (root_fd == -1) {
         root_fd = socket_fd;
-        printf("[SERVER] 🌟 Root 권한 부여 (socket %d)\n", socket_fd);
+        printf("[SERVER] 🌟 Root permission give (socket %d)\n", socket_fd);
     }
 }
 
@@ -98,9 +87,14 @@ bool transfer_root(const char *target_username) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (strcmp(usernames[i], target_username) == 0) {
             root_fd = client_sockets[i];
-            printf("[SERVER] 🔑 Root 권한이 %s에게 양도됨\n", target_username);
+            printf("[SERVER] 🔑 Root permission transferred to %s\n", target_username);
             return true;
         }
     }
     return false;
 }
+bool can_kick(int requester_fd) {
+    // 지금 구조에서는 root만 kick 가능하게
+    return is_root(requester_fd);
+}
+

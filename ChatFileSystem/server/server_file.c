@@ -24,10 +24,8 @@ static void* delete_file_after_delay(void *arg) {
     server_log("Timer started for file %s (ttl=%d sec)",
                task->filepath, task->ttl_seconds);
 
-    // 지정된 시간만큼 대기
     sleep(task->ttl_seconds);
 
-    // 파일 삭제 시도
     int ret = unlink(task->filepath);
     if (ret == 0) {
         server_log("Timed-delete: removed file %s", task->filepath);
@@ -36,24 +34,25 @@ static void* delete_file_after_delay(void *arg) {
                    task->filepath, errno);
     }
 
-    free(task);   // 동적할당 해제
+    free(task);
     return NULL;
 }
 
 ssize_t w;
+
 /**
- *  파일 업로드 처리
- *  MSG_FILE_UPLOAD → MSG_FILE_READY → MSG_FILE_DATA 반복 → MSG_FILE_END
+ * 파일 업로드 처리
+ * MSG_FILE_UPLOAD → MSG_FILE_READY → MSG_FILE_DATA 반복 → MSG_FILE_END
  */
 void handle_file_upload(int client_fd, Message *msg) {
     char filename[256];
     long filesize;
-    int ttl_seconds=0; //0이면 자동 삭제 안함
+    int ttl_seconds = 0;     // 0이면 자동 삭제 없음
 
-    // MSG_FILE_UPLOAD의 data = "filename filesize"
+    // MSG_FILE_UPLOAD의 data = "filename filesize ttl"
     int parsed = sscanf(msg->data, "%s %ld %d", filename, &filesize, &ttl_seconds);
-        if (parsed < 2) {
-        // 형식 잘못된 경우 에러 처리
+    if (parsed < 2) {
+        // 형식 잘못된 경우
         Message err;
         memset(&err, 0, sizeof(err));
         err.type = MSG_ERROR;
@@ -65,7 +64,7 @@ void handle_file_upload(int client_fd, Message *msg) {
 
     server_log("File upload request: %s (%ld bytes)", filename, filesize);
 
-    // 서버 저장 경로 구성
+    // 저장 경로 구성
     char filepath[512];
     sprintf(filepath, "%s%s", STORAGE_DIR, filename);
 
@@ -78,32 +77,27 @@ void handle_file_upload(int client_fd, Message *msg) {
         err.type = MSG_ERROR;
         strcpy(err.sender, "SERVER");
         strcpy(err.data, "FILE_OPEN_FAIL");
+
         w = write(client_fd, &err, sizeof(err));
-        
-        if(w < 0){
-            perror("write");
-        }
+        if (w < 0) perror("write");
         return;
     }
 
-    // 1) READY 전송
+    // 🔹 1) READY 전송
     Message ready;
     memset(&ready, 0, sizeof(ready));
     ready.type = MSG_FILE_READY;
     strcpy(ready.sender, "SERVER");
-    w = write(client_fd, &ready, sizeof(ready));
 
-    if(w < 0){
-        perror("write");
-    }
+    w = write(client_fd, &ready, sizeof(ready));
+    if (w < 0) perror("write");
 
     long received = 0;
 
-    // 2) 파일 청크 수신
+    // 🔹 2) 파일 청크 수신
     while (1) {
         Message chunk;
         int len = read(client_fd, &chunk, sizeof(chunk));
-
         if (len <= 0) break;
 
         if (chunk.type == MSG_FILE_END) {
@@ -121,7 +115,7 @@ void handle_file_upload(int client_fd, Message *msg) {
 
     server_log("File Upload success %s (%ld bytes send)", filename, received);
 
-    // 🔥 [TTL] 업로드 완료 후, ttl_seconds > 0 이면 삭제 타이머 스레드 생성
+    // 🔥 TTL 자동 삭제 스레드
     if (ttl_seconds > 0) {
         DeleteTaskArgs *task = malloc(sizeof(DeleteTaskArgs));
         if (task) {
@@ -132,20 +126,20 @@ void handle_file_upload(int client_fd, Message *msg) {
 
             pthread_t tid;
             pthread_attr_t attr;
+
             pthread_attr_init(&attr);
             pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
-            int rc = pthread_create(&tid, &attr,
-                                    delete_file_after_delay, task);
+            int rc = pthread_create(&tid, &attr, delete_file_after_delay, task);
             pthread_attr_destroy(&attr);
 
             if (rc != 0) {
-                server_log("Failed to create delete timer thread for %s (rc=%d)",
-                           filename, rc);
+                server_log("Failed to create delete timer thread for %s (rc=%d)", filename, rc);
                 free(task);
             } else {
                 server_log("Delete timer thread created for %s", filename);
             }
+
         } else {
             server_log("malloc failed for DeleteTaskArgs");
         }
@@ -153,10 +147,9 @@ void handle_file_upload(int client_fd, Message *msg) {
 }
 
 
-
 /**
- *  파일 다운로드 처리
- *  MSG_FILE_DOWNLOAD → MSG_FILE_READY → MSG_FILE_DATA 반복 → MSG_FILE_END
+ * 파일 다운로드 처리
+ * MSG_FILE_DOWNLOAD → MSG_FILE_READY → MSG_FILE_DATA 반복 → MSG_FILE_END
  */
 void handle_file_download(int client_fd, Message *msg) {
     char filename[256];
@@ -171,40 +164,32 @@ void handle_file_download(int client_fd, Message *msg) {
     if (!fp) {
         server_log("There are no file in directory: %s", filename);
 
-        // 파일 없음 → MSG_ERROR 반환
         Message err;
         memset(&err, 0, sizeof(err));
         err.type = MSG_ERROR;
         strcpy(err.sender, "SERVER");
         strcpy(err.data, "NOFILE");
+
         w = write(client_fd, &err, sizeof(err));
-        
-        if(w < 0){
-            perror("write");
-        }
+        if (w < 0) perror("write");
+
         return;
     }
 
-    // ---------------------------------------------------
-    // 🔥 1) 클라이언트에게 "파일 다운로드 준비됨" 알려주기
-    // ---------------------------------------------------
+    // 🔹 1) 파일 다운로드 준비됨 알림
     Message ready;
     memset(&ready, 0, sizeof(ready));
     ready.type = MSG_FILE_READY;
     strcpy(ready.sender, "SERVER");
-    w = write(client_fd, &ready, sizeof(ready));
 
-    if(w< 0 ){
-        perror("write");
-    }
-    // ---------------------------------------------------
-    // 🔥 2) 실제 파일 청크 전송
-    // ---------------------------------------------------
+    w = write(client_fd, &ready, sizeof(ready));
+    if (w < 0) perror("write");
+
+    // 🔹 2) 파일 청크 전송
     char buffer[MAX_BUF];
     int n;
 
     while ((n = fread(buffer, 1, sizeof(buffer), fp)) > 0) {
-
         server_log("SEND DATA: %d bytes", n);
 
         Message chunk;
@@ -216,17 +201,12 @@ void handle_file_download(int client_fd, Message *msg) {
         chunk.data_len = n;
 
         w = write(client_fd, &chunk, sizeof(chunk));
-    
-        if(w < 0){
-            perror("write");
-        }
+        if (w < 0) perror("write");
     }
 
     fclose(fp);
 
-    // ---------------------------------------------------
-    // 🔥 3) 파일 전송 완료 메시지 전송
-    // ---------------------------------------------------
+    // 🔹 3) 파일 전송 완료 메시지
     Message end;
     memset(&end, 0, sizeof(end));
     end.type = MSG_FILE_END;
@@ -235,9 +215,7 @@ void handle_file_download(int client_fd, Message *msg) {
     end.data_len = 0;
 
     w = write(client_fd, &end, sizeof(end));
+    if (w < 0) perror("write");
 
-    if(w < 0){
-        perror("write");
-    }
     server_log("Success File Download: %s", filename);
 }

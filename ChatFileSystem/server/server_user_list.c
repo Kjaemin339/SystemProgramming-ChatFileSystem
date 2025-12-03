@@ -55,3 +55,11 @@ void send_user_list(int client_fd) {
     server_log("접속자 목록 전송 (to socket %d)", client_fd);
 }
 
+void disconnect_client(int idx) {
+    if (client_sockets[idx] > 0) {
+        close(client_sockets[idx]);
+        client_sockets[idx] = 0;
+        usernames[idx][0] = '\0';  // 이름 초기화
+        printf("[SERVER] Client %d disconnected\n", idx);
+    }
+}

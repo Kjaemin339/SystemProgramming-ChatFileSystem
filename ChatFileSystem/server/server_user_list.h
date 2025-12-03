@@ -3,5 +3,6 @@
 
 void send_user_list(int client_fd);
 void register_user(int client_fd, const char *username);
+void disconnect_client(int idx);
 
 #endif

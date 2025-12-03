@@ -1,5 +1,14 @@
-[12:00:14] () Server Connect Success
-[12:00:18] () Server Connect Success
-[12:00:22] (test1) Login Success (test1)
-[12:00:26] (admin) Login Success (admin)
-[12:00:39] (test1) Upload: test2.txt (ttl=1 min)
+[09:45:36] () Server Connect Success
+[09:45:40] (admin) Login Success (admin)
+[09:45:45] () Server Connect Success
+[09:45:50] (test1) Login Success (test1)
+[09:45:54] (admin) Chat: hello
+[09:45:59] (test1) Chat: hello~
+[09:46:04] (test1) Chat: 
+[09:46:04] (test1) Chat: 
+[09:46:09] (test1) Chat: hello2
+[09:46:16] (admin) Chat: hello2
+[09:46:16] (admin) Chat: 
+[09:46:18] (test1) Chat: df
+[09:46:20] (admin) Chat: ad
+[09:46:22] (test1) Chat: sdds
